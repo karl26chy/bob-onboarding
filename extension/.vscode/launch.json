@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Configuración para lanzar la extensión con F5.
+      // VS Code abre una ventana nueva "Extension Development Host" con la
+      // extensión cargada. Cualquier cambio en el código requiere Ctrl+Shift+F5
+      // para reiniciar el host.
+      "name": "Run Bob Onboarding Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

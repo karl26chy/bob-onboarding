@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    // Apuntamos a ES2020 que es el mínimo soportado por el runtime de VS Code
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "outDir": "./out",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // Mejora la experiencia de depuración con F5
+    "sourceMap": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "out"]
+}

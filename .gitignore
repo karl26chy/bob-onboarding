@@ -1,0 +1,32 @@
+﻿# ── Dependencias ──────────────────────────────────────────────────────────────
+extension/node_modules/
+
+# ── Compilado TypeScript ───────────────────────────────────────────────────────
+# Los archivos compilados se regeneran con `npm run compile`.
+# No se incluyen en el repositorio.
+extension/out/
+
+# ── Artefactos generados en runtime ──────────────────────────────────────────
+# onboarding.json se regenera con cada análisis (Generar análisis con Bob).
+# El .gitkeep mantiene la carpeta bob_sessions/ en el repositorio.
+bob_sessions/onboarding.json
+bob_sessions/debug_raw_stdout.txt
+bob_sessions/test-output.txt
+
+# ── Archivo temporal de prompt ────────────────────────────────────────────────
+# Escrito en el workspace analizado durante la ejecucion y borrado al terminar.
+# Incluido aqui por si alguna ejecucion interrumpida lo deja como residuo.
+.bob-onboarding-prompt.txt
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── Sistema operativo ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Variables de entorno ──────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local

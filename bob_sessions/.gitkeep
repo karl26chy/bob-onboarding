@@ -1,0 +1,6 @@
+# Esta carpeta contiene los análisis generados por IBM Bob Shell.
+# El archivo onboarding.json se crea aquí al ejecutar el comando
+# "Bob Onboarding: Generar análisis con Bob".
+#
+# onboarding.json NO se versiona (ver .gitignore) porque es generado
+# automáticamente y puede contener información específica del entorno.
