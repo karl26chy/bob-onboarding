@@ -13,7 +13,7 @@
  */
 
 import * as vscode from 'vscode';
-import { createOrShowPanel, createOrUpdatePanel } from './panel';
+import { createOrShowPanel, createOrUpdatePanel, BobOnboardingSidebarProvider } from './panel';
 import { sampleData } from './sampleData';
 import { runBobAnalysis, loadSavedAnalysis } from './bobRunner';
 
@@ -22,6 +22,20 @@ import { runBobAnalysis, loadSavedAnalysis } from './bobRunner';
  */
 export function activate(context: vscode.ExtensionContext): void {
   console.log('[BobOnboarding] Extensión activada.');
+
+  // ── Sidebar provider ────────────────────────────────────────────────────────
+  //
+  // Registered first so the view is ready as soon as the extension activates
+  // (triggered either by the Activity Bar click or by a command).
+  // Initial data: saved analysis if available, otherwise sampleData.
+  const initialData = loadSavedAnalysis() ?? sampleData;
+  const sidebarProvider = new BobOnboardingSidebarProvider(context, initialData);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      BobOnboardingSidebarProvider.viewId,
+      sidebarProvider
+    )
+  );
 
   // ── Comando 1: Abrir panel ──────────────────────────────────────────────────
   //
@@ -96,7 +110,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
             progress.report({ message: 'Análisis completado. Actualizando panel...' });
 
-            // Actualizar o crear el panel con los datos reales
+            // Actualizar la sidebar con los datos reales
+            sidebarProvider.update(data);
+
+            // Actualizar también el panel flotante si está abierto
             createOrUpdatePanel(context, data);
 
             vscode.window.showInformationMessage(

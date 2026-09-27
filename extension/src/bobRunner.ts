@@ -15,6 +15,7 @@
 import spawn from 'cross-spawn';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import type { OnboardingData } from './types';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -157,58 +158,74 @@ export function loadSavedAnalysis(): OnboardingData | null {
 // ─── Funciones privadas ───────────────────────────────────────────────────────
 
 /**
- * Nombre del archivo temporal que contiene el prompt completo de análisis.
- * Se escribe en el cwd del workspace antes de invocar Bob Shell y se borra
- * al terminar (tanto en éxito como en error).
- *
- * Motivo: el prompt multilínea (ANALYSIS_PROMPT) se corta en Windows cuando
- * se pasa como argumento de línea de comandos, porque los saltos de línea
- * rompen el parseo de argumentos y Bob solo recibe la primera línea.
- * Escribiéndolo a un archivo y referenciándolo con '@' en el prompt corto,
- * evitamos ese problema por completo.
- */
-const PROMPT_FILENAME = '.bob-onboarding-prompt.txt';
-
-/**
  * Ejecuta Bob Shell como proceso hijo y devuelve el stdout completo.
  *
  * Estrategia para el prompt:
- *   1. Escribe ANALYSIS_PROMPT al archivo PROMPT_FILENAME dentro del cwd.
- *   2. Pasa a Bob un prompt corto de una sola línea que referencia ese archivo
- *      con '@', evitando que los saltos de línea rompan el parseo de argumentos
- *      en Windows.
- *   3. Borra el archivo temporal al terminar (éxito o error).
+ *   El prompt multilínea (ANALYSIS_PROMPT) se pasa a Bob Shell a través de
+ *   stdin (pipe), que es el método recomendado por la documentación de Bob Shell
+ *   para prompts de múltiples líneas:
+ *     cat prompt.txt | bob
+ *   Esto evita los problemas de parseo de argumentos en Windows y garantiza
+ *   que Bob recibe el prompt completo, incluidas las instrucciones estrictas
+ *   y el esquema JSON.
+ *
+ *   Además se usa --hide-intermediary-output para que stdout contenga solo la
+ *   respuesta final del asistente, sin cabeceras de sesión ni pasos intermedios,
+ *   lo que hace la extracción del JSON mucho más fiable.
  *
  * Por qué capturamos stderr pero no lo usamos como error:
- *   - Bob Shell escribe información de progreso en stderr (pasos de herramientas,
- *     etc.). No es un error de ejecución; el error real es un código de salida ≠ 0
- *     o stdout vacío.
+ *   Bob Shell escribe información de progreso en stderr. No es un error de
+ *   ejecución; el error real es un código de salida ≠ 0 o stdout vacío.
  */
 function executeBobShell(cwd: string): Promise<string> {
-  const promptFilePath = path.join(cwd, PROMPT_FILENAME);
-  fs.writeFileSync(promptFilePath, ANALYSIS_PROMPT, 'utf-8');
+  // Resolve the API key: VS Code setting → BOB_API_KEY env → BOBSHELL_API_KEY env.
+  const settingKey: string =
+    vscode.workspace.getConfiguration('bobOnboarding').get<string>('apiKey', '').trim();
+  const apiKey =
+    settingKey ||
+    process.env['BOB_API_KEY'] ||
+    process.env['BOBSHELL_API_KEY'] ||
+    '';
 
-  const cleanup = () => {
-    try { fs.unlinkSync(promptFilePath); } catch { /* no crítico */ }
+  if (!apiKey) {
+    return Promise.reject(new Error(
+      'Bob API key not found.\n' +
+      'Provide it via one of:\n' +
+      '  1. VS Code setting "bobOnboarding.apiKey"\n' +
+      '  2. Environment variable BOB_API_KEY\n' +
+      '  3. Environment variable BOBSHELL_API_KEY'
+    ));
+  }
+
+  // Build the child-process environment: inherit everything from the parent
+  // and explicitly set both key names so Bob CLI is satisfied regardless of
+  // which name it looks for.
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    BOB_API_KEY: apiKey,
+    BOBSHELL_API_KEY: apiKey,
   };
 
   return new Promise((resolve, reject) => {
     console.log(`[BobOnboarding] Ejecutando en cwd: ${cwd}`);
+    // Pass the prompt via stdin (recommended pattern for multi-line prompts).
+    // --hide-intermediary-output ensures stdout contains only the final
+    // assistant response, without session headers or tool-call logs.
     const child = spawn(
       BOB_CMD,
-      [
-        '-p',
-        `Read the file @${PROMPT_FILENAME} in the root of this repository and follow its instructions exactly. Return ONLY the JSON object it specifies, nothing else.`,
-      ],
-      { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
+      ['--hide-intermediary-output'],
+      { cwd, env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] }
     );
+
+    // Write the full prompt to stdin and close it so Bob knows input is done.
+    child.stdin?.write(ANALYSIS_PROMPT, 'utf-8');
+    child.stdin?.end();
 
     let stdout = '';
     let stderr = '';
 
     const timer = setTimeout(() => {
       child.kill();
-      cleanup();
       reject(new Error('Bob Shell superó el tiempo máximo de espera (5 minutos).'));
     }, TIMEOUT_MS);
 
@@ -217,7 +234,6 @@ function executeBobShell(cwd: string): Promise<string> {
 
     child.on('error', (err) => {
       clearTimeout(timer);
-      cleanup();
       reject(new Error(
         `No se pudo iniciar Bob Shell: ${err.message}\n\n` +
         `Verifica que:\n` +
@@ -228,7 +244,6 @@ function executeBobShell(cwd: string): Promise<string> {
 
     child.on('close', (code) => {
       clearTimeout(timer);
-      cleanup();
 
       if (code !== 0) {
         const detail = stderr.trim() || `El proceso terminó con código ${code} sin mensaje de error.`;
@@ -246,7 +261,7 @@ function executeBobShell(cwd: string): Promise<string> {
       if (!stdout || stdout.trim() === '') {
         reject(new Error(
           'Bob Shell no devolvió ningún output.\n' +
-          'Intenta ejecutar manualmente: bob run "Hello" para verificar que funciona.'
+          'Intenta ejecutar manualmente: bob -p "Hello" para verificar que funciona.'
         ));
         return;
       }

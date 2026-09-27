@@ -10,21 +10,68 @@
     "Other"
   ],
   "activationEvents": [
+    "onView:bobOnboarding.sidebar",
     "onCommand:bobOnboarding.open",
     "onCommand:bobOnboarding.generate"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bobOnboarding",
+          "title": "Bob Onboarding",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "bobOnboarding": [
+        {
+          "type": "webview",
+          "id": "bobOnboarding.sidebar",
+          "name": "Arquitectura",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "bobOnboarding.generate",
+          "when": "view == bobOnboarding.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "bobOnboarding.open",
+          "when": "view == bobOnboarding.sidebar",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Bob Onboarding",
+      "properties": {
+        "bobOnboarding.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "IBM Bob API key. If set, this takes precedence over the `BOB_API_KEY` and `BOBSHELL_API_KEY` environment variables.",
+          "order": 1
+        }
+      }
+    },
     "commands": [
       {
         "command": "bobOnboarding.open",
-        "title": "Bob Onboarding: Abrir panel de arquitectura",
-        "category": "Bob"
+        "title": "Abrir panel de arquitectura",
+        "category": "Bob Onboarding",
+        "icon": "$(preview)"
       },
       {
         "command": "bobOnboarding.generate",
-        "title": "Bob Onboarding: Generar análisis con Bob",
-        "category": "Bob"
+        "title": "Generar análisis con Bob",
+        "category": "Bob Onboarding",
+        "icon": "$(sparkle)"
       }
     ]
   },
